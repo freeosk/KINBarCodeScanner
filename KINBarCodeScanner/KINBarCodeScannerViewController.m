@@ -328,12 +328,6 @@
     return NO;
 }
 
-#pragma mark - Status Bar
-
-- (BOOL)prefersStatusBarHidden {
-    return YES;
-}
-
 #pragma mark - Interface Orientation
 
 - (BOOL)shouldAutorotate {
