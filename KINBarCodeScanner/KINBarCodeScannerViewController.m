@@ -41,6 +41,7 @@
 @property (nonatomic, strong) AVCaptureMetadataOutput *output;
 @property (nonatomic, strong) AVCaptureVideoPreviewLayer *previewLayer;
 
+@property (nonatomic, strong) CALayer *centerLayer;
 @property (nonatomic, strong) CALayer *highlightLayer;
 @property (nonatomic, strong) NSArray *validCodeObjects;
 @property (nonatomic, strong) NSArray *invalidCodeObjects;
@@ -121,6 +122,11 @@
     self.previewLayer.frame = self.view.bounds;
     [self.view.layer addSublayer:self.previewLayer];
     
+    self.centerLayer = [CALayer layer];
+    self.centerLayer.delegate = self;
+    self.centerLayer.frame = self.previewLayer.bounds;
+    [self.view.layer addSublayer:self.centerLayer];
+    
     self.highlightLayer = [CALayer layer];
     self.highlightLayer.delegate = self;
     self.highlightLayer.frame = self.previewLayer.bounds;
@@ -132,6 +138,9 @@
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    
+    [self.centerLayer setNeedsDisplay];
+    
     [self startScanning];
 }
 
@@ -140,6 +149,7 @@
 }
 
 - (void)dealloc {
+    self.centerLayer.delegate = nil;
     self.highlightLayer.delegate = nil;
     
     [self.captureSession removeInput:self.deviceInput];
@@ -150,6 +160,7 @@
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
     self.previewLayer.frame = self.view.bounds;
+    self.centerLayer.frame = self.previewLayer.bounds;
     self.highlightLayer.frame = self.previewLayer.bounds;
 }
 
@@ -220,30 +231,41 @@
 #pragma mark - CALayerDelegate
 
 - (void)drawLayer:(CALayer *)layer inContext:(CGContextRef)ctx {
-    
-    if(self.selectedCodeObject) {
-        CGContextSetLineWidth(ctx, [self.hightlightStrokeWidth doubleValue]*2.0f);
-        UIBezierPath *path = [UIBezierPath bezierPathWithRect:self.selectedCodeObject.bounds];
-        CGContextAddPath(ctx, path.CGPath);
-        CGContextSetStrokeColorWithColor(ctx, [self.detectableHighlightColor CGColor]);
-        CGContextStrokePath(ctx);
-    }
-    else {
-        CGContextSetLineWidth(ctx, [self.hightlightStrokeWidth doubleValue]);
-        for (AVMetadataMachineReadableCodeObject *codeObject in self.validCodeObjects) {
-            UIBezierPath *path = [UIBezierPath bezierPathWithRect:codeObject.bounds];
-            CGContextAddPath(ctx, path.CGPath);
-        }
-        CGContextSetStrokeColorWithColor(ctx, [self.detectableHighlightColor CGColor]);
-        CGContextStrokePath(ctx);
+    if (layer == self.centerLayer) {
+        CGRect rect = CGRectMake(20,
+                                 (self.view.frame.size.height / 2) - (150 / 2),
+                                 self.view.frame.size.width - (20 * 2),
+                                 150);
         
-        if(self.shouldHighlightUndetectableCodes) {
-            for (AVMetadataMachineReadableCodeObject *codeObject in self.invalidCodeObjects) {
+        CGContextSetLineWidth(ctx, [self.hightlightStrokeWidth doubleValue] / 2.0f);
+        UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:15.0f];
+        CGContextAddPath(ctx, path.CGPath);
+        CGContextSetStrokeColorWithColor(ctx, [[UIColor whiteColor] CGColor]);
+        CGContextStrokePath(ctx);
+    } else {
+        if (self.selectedCodeObject) {
+            CGContextSetLineWidth(ctx, [self.hightlightStrokeWidth doubleValue]*2.0f);
+            UIBezierPath *path = [UIBezierPath bezierPathWithRect:self.selectedCodeObject.bounds];
+            CGContextAddPath(ctx, path.CGPath);
+            CGContextSetStrokeColorWithColor(ctx, [self.detectableHighlightColor CGColor]);
+            CGContextStrokePath(ctx);
+        } else {
+            CGContextSetLineWidth(ctx, [self.hightlightStrokeWidth doubleValue]);
+            for (AVMetadataMachineReadableCodeObject *codeObject in self.validCodeObjects) {
                 UIBezierPath *path = [UIBezierPath bezierPathWithRect:codeObject.bounds];
                 CGContextAddPath(ctx, path.CGPath);
             }
-            CGContextSetStrokeColorWithColor(ctx, [self.undetectableHighlightColor CGColor]);
+            CGContextSetStrokeColorWithColor(ctx, [self.detectableHighlightColor CGColor]);
             CGContextStrokePath(ctx);
+            
+            if (self.shouldHighlightUndetectableCodes) {
+                for (AVMetadataMachineReadableCodeObject *codeObject in self.invalidCodeObjects) {
+                    UIBezierPath *path = [UIBezierPath bezierPathWithRect:codeObject.bounds];
+                    CGContextAddPath(ctx, path.CGPath);
+                }
+                CGContextSetStrokeColorWithColor(ctx, [self.undetectableHighlightColor CGColor]);
+                CGContextStrokePath(ctx);
+            }
         }
     }
 }
